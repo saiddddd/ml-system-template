@@ -4,7 +4,7 @@ class ModelController:
     """
     Model Controller is responsible for coordinating models which have been used.
     ModelController is design in singleton pattern,
-    Online ML system has one and only one ModelController.
+    ML system has one and only one ModelController.
     Only Operated by ML server main process.
     """
 
