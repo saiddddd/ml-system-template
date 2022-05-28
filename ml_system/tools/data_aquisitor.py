@@ -1,5 +1,7 @@
 
+import threading
 import json
+import time
 from abc import ABC, abstractmethod
 from kafka import KafkaConsumer
 
@@ -41,7 +43,7 @@ class DataAcquisitor(ABC):
     @data_acquisitor_status.getter
     def data_acquisitor_status(self):
 
-        if self.__data_acquisitor_status is 'running' or self.__data_acquisitor_status is 'stop':
+        if self.__data_acquisitor_status == 'running' or self.__data_acquisitor_status == 'stop':
             return self.__data_acquisitor_status
         else:
             print(self.__data_acquisitor_status)
@@ -63,15 +65,15 @@ class DataAcquisitor(ABC):
     def run(self):
         """
         Executing Data Acquisition which implement in concrete class for satisfied data source requirements.
-
         Using data_acquisitor_status
-
         :return:
         """
 
         self.data_acquisitor_status = 'running'
 
-        while self.data_acquisitor_status is 'running':
+        print("Data acquisitor: {} is running".format(self.__data_acq_name))
+
+        while self.data_acquisitor_status == 'running':
             self._data_acq_job()
 
         print("{} is stopped".format(__name__))
@@ -135,13 +137,79 @@ class KafkaDataAcquisitor(DataAcquisitor):
 
 
     def _data_acq_job(self):
-        pass
+        """
+        Implement of kafka data source acquisition core part.
+        polling data from kafka message queue and set it onto
+        :return:
+        """
+
+        while self.data_acquisitor_status == 'running':
+            data_polling_result = self.__kafka_consumer.poll(
+                timeout_ms=1000,
+                max_records=None,
+                update_offsets=True
+            )
+            for key, value in data_polling_result.items():
+                self.__data = value
+            time.sleep(1)
 
     def get_data(self):
-        return self.__data
+        """
+        Generator feature,
+        for ML server side to fetch data by iterator.
+        Terminated while process stop.
+        :return:
+        """
+        start_time_stamp = time.time()
+        print("data acquisitor: is fetching data")
+        while self.data_acquisitor_status == 'running':
+            time.sleep(1)
+
+            if self.__data is not None:
+                fetched_data = self.__data
+                self.__data = None
+                yield fetched_data
 
 
 
+if __name__ == "__main__":
+
+    def run_data_fetcher(fetcher):
+        while True:
+            try:
+                print(next(fetcher))
+            except StopIteration:
+                print("Generator is terminated!")
+                break
+        print("finish of data fetcher, bye~~")
+
+
+    kafka_daq = KafkaDataAcquisitor(
+        data_acq_name='kafka_1',
+        bootstrap_server='localhost:9092',
+        topic='testTopic'
+    )
+
+    run_kafka_daq_thread = threading.Thread(target=kafka_daq.run)
+    # run_kafka_data_fetcher = threading.Thread(target=kafka_daq.get_data)
+    print("go to run daq")
+    run_kafka_daq_thread.start()
+    data_fetcher = kafka_daq.get_data()
+
+    run_kafka_data_fetcher = threading.Thread(target=run_data_fetcher, kwargs={"fetcher": data_fetcher})
+    run_kafka_data_fetcher.start()
+
+    time.sleep(60)
+
+    kafka_daq.stop()
+
+    # while True:
+    #     try:
+    #         print(next(data_fetcher))
+    #     except StopIteration:
+    #         print("Generator is terminated!")
+    #         break
+    # print("finish of data fetcher, bye~~")
 
 
 
