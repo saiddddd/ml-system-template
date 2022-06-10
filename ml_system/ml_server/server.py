@@ -4,8 +4,7 @@ import pandas as pd
 
 from data_acq_controller import DataAcquisitorController
 
-from ml_system.tools.data_aquisitor import KafkaDataAcquisitor
-from ml_system.ml_server.data_acq_servicer import DataAcquisitorServicer
+from ml_system.tools.data_loader import CsvDataLoader
 
 from ml_system.tools.model import SklearnRandonForest
 
@@ -76,28 +75,33 @@ class MachineLearningServer:
     def run(self):
 
         # start the servicer by controller
-        self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
+        # self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
 
-        # data_acq_services = threading.Thread(target=data_acq.run)
-        # data_acq_services.start()
-        data_fetcher = self.__data_acq_controller.get_data_acq('kafka_1').get_data_fetcher()
-        data_accumulator = []
-        while True:
-            try:
-                data_accumulator.extend(next(data_fetcher))
-                if len(data_accumulator) >= 2000:
-                    df = pd.DataFrame(data_accumulator)
-                    print(df)
-                    x = df
-                    y = df.pop('Y')
-                    # going to do model fitting
-                    self._model.fit(x, y)
-                else:
-                    print('current data rows:{} keep accumulating until: 2000'.format(len(data_accumulator)))
+        csv_data_loader = CsvDataLoader(input_file_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
+        df = csv_data_loader.get_df()
+        y = df.pop('satisfaction')
+        self._model.fit(df, y)
 
-
-            except StopIteration:
-                print('Stop data acq')
+        # # data_acq_services = threading.Thread(target=data_acq.run)
+        # # data_acq_services.start()
+        # data_fetcher = self.__data_acq_controller.get_data_acq('kafka_1').get_data_fetcher()
+        # data_accumulator = []
+        # while True:
+        #     try:
+        #         data_accumulator.extend(next(data_fetcher))
+        #         if len(data_accumulator) >= 2000:
+        #             df = pd.DataFrame(data_accumulator)
+        #             print(df)
+        #             x = df
+        #             y = df.pop('Y')
+        #             # going to do model fitting
+        #             self._model.fit(x, y)
+        #         else:
+        #             print('current data rows:{} keep accumulating until: 2000'.format(len(data_accumulator)))
+        #
+        #
+        #     except StopIteration:
+        #         print('Stop data acq')
 
 if __name__ == '__main__':
 
