@@ -69,13 +69,15 @@ class MachineLearningServer:
 
     def run(self):
 
-        data_acq = self.__data_acq_controller.get_data_acq('kafka_1')
-        self.__data_acq_servicer = DataAcquisitorServicer(data_acq)
-        self.__data_acq_servicer.start()
+        # data_acq = self.__data_acq_controller.get_data_acq('kafka_1')
+        # self.__data_acq_servicer = DataAcquisitorServicer(data_acq)
+        # self.__data_acq_servicer.start()
+
+        self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
 
         # data_acq_services = threading.Thread(target=data_acq.run)
         # data_acq_services.start()
-        data_fetcher = data_acq.get_data()
+        data_fetcher = self.__data_acq_controller.get_data_acq('kafka_1').get_data()
         while True:
             try:
                 print(next(data_fetcher))
