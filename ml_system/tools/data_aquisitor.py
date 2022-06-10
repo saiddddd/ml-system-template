@@ -64,7 +64,7 @@ class DataAcquisitor(ABC):
 
     def run(self):
         """
-        Executing Data Acquisition which implement in concrete class for satisfied data source requirements.
+        Run method, Executing Data Acquisition which implement in concrete class for satisfied data source requirements.
         Using data_acquisitor_status
         :return:
         """
@@ -143,15 +143,17 @@ class KafkaDataAcquisitor(DataAcquisitor):
         :return:
         """
 
-        while self.data_acquisitor_status == 'running':
-            data_polling_result = self.__kafka_consumer.poll(
-                timeout_ms=1000,
-                max_records=None,
-                update_offsets=True
-            )
-            for key, value in data_polling_result.items():
-                self.__data = value
-            time.sleep(1)
+        # while self.data_acquisitor_status == 'running':
+        data_polling_result = self.__kafka_consumer.poll(
+            timeout_ms=1000,
+            max_records=None,
+            update_offsets=True
+        )
+        for key, value in data_polling_result.items():
+            # kafka polling result.items() will return one batch of polling data with key == topic.
+            # if here only one topic going to consume, the for loop will iterate only one time.
+            self.__data = value
+        time.sleep(1)
 
     def get_data(self):
         """

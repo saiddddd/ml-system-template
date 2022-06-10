@@ -1,3 +1,5 @@
+from ml_system.tools.data_aquisitor import KafkaDataAcquisitor
+
 
 class DataAcquisitorController:
     """
@@ -21,9 +23,17 @@ class DataAcquisitorController:
         # internal repository for holding data acq
         self.__data_acq_repository = {}
 
+    def create_data_acq(self, data_source_type: str, data_acq_name: str, *args, **kwargs):
+        if data_source_type == 'kafka':
+
+            data_daq = KafkaDataAcquisitor(
+                data_acq_name=data_acq_name,
+                bootstrap_server=kwargs.get('bootstrap_server'),
+                topic=kwargs.get('topic')
+            )
+            self.__data_acq_repository[data_acq_name] = data_daq
+
     def get_data_acq(self, data_acq_name: str) -> object:
         return self.__data_acq_repository.get(data_acq_name)
 
-    def save_data_acq_into_repository(self, data_acq_name: str, data_acq: object):
-        self.__data_acq_repository[data_acq_name] = data_acq
 
