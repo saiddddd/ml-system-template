@@ -1,5 +1,7 @@
 import threading
 
+import pandas as pd
+
 from data_acq_controller import DataAcquisitorController
 
 from ml_system.tools.data_aquisitor import KafkaDataAcquisitor
@@ -48,17 +50,21 @@ class MachineLearningServer:
 
         #init object needed
         self._init_data_daq()
-        self._init_model()
+        self._init_model(
+            n_estimators=10,
+            verbose=1
+        )
 
 
 
 
     def _init_model(self, *args, **kwargs):
-        self._model = SklearnRandonForest()
+        self._model = SklearnRandonForest(*args, **kwargs)
 
 
     def _init_data_daq(self):
 
+        # preparing data acquisitor here
         self.__data_acq_controller.create_data_acq(
             data_source_type='kafka',
             data_acq_name='kafka_1',
@@ -69,18 +75,27 @@ class MachineLearningServer:
 
     def run(self):
 
-        # data_acq = self.__data_acq_controller.get_data_acq('kafka_1')
-        # self.__data_acq_servicer = DataAcquisitorServicer(data_acq)
-        # self.__data_acq_servicer.start()
-
+        # start the servicer by controller
         self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
 
         # data_acq_services = threading.Thread(target=data_acq.run)
         # data_acq_services.start()
-        data_fetcher = self.__data_acq_controller.get_data_acq('kafka_1').get_data()
+        data_fetcher = self.__data_acq_controller.get_data_acq('kafka_1').get_data_fetcher()
+        data_accumulator = []
         while True:
             try:
-                print(next(data_fetcher))
+                data_accumulator.extend(next(data_fetcher))
+                if len(data_accumulator) >= 2000:
+                    df = pd.DataFrame(data_accumulator)
+                    print(df)
+                    x = df
+                    y = df.pop('Y')
+                    # going to do model fitting
+                    self._model.fit(x, y)
+                else:
+                    print('current data rows:{} keep accumulating until: 2000'.format(len(data_accumulator)))
+
+
             except StopIteration:
                 print('Stop data acq')
 

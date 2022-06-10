@@ -5,6 +5,8 @@ import time
 from abc import ABC, abstractmethod
 from kafka import KafkaConsumer
 
+import pandas as pd
+
 
 class DataAcquisitor(ABC):
 
@@ -66,6 +68,18 @@ class DataAcquisitor(ABC):
         """
         Run method, Executing Data Acquisition which implement in concrete class for satisfied data source requirements.
         Using data_acquisitor_status
+
+        procedure to start data acquisitor
+
+        Examples
+        --------
+
+        >>> data_acq = DataAcquisitor()  # initialize data acquisitor by constructor
+        >>> servicer = Thread(target=data_acq.run)  # put this run method to a Thread and execute by thread module
+        >>> # this run method will assign `running` status to data acquisitor and make it process as function implemented
+        >>> servicer.start()  # start the servicer thread
+
+        --------
         :return:
         """
 
@@ -155,14 +169,15 @@ class KafkaDataAcquisitor(DataAcquisitor):
             self.__data = value
         time.sleep(1)
 
-    def get_data(self):
+    #TODO: generalize data get function to fit all data sources
+    def get_data_fetcher(self) -> list:
         """
         Generator feature,
         for ML server side to fetch data by iterator.
         Terminated while process stop.
         :return:
         """
-        start_time_stamp = time.time()
+        # start_time_stamp = time.time()
         print("data acquisitor: is fetching data")
         while self.data_acquisitor_status == 'running':
             time.sleep(1)
@@ -170,8 +185,17 @@ class KafkaDataAcquisitor(DataAcquisitor):
             if self.__data is not None:
                 fetched_data = self.__data
                 self.__data = None
-                yield fetched_data
 
+                # convert kafka poll data into pandas dataframe
+                # 2d list
+                accumulated_data = []
+                for record in fetched_data:
+                    row_data = record.value
+                    accumulated_data.append(row_data)
+                # df = pd.DataFrame(accumulated_data)
+                # yield df
+
+                yield accumulated_data
 
 
 if __name__ == "__main__":
@@ -196,7 +220,7 @@ if __name__ == "__main__":
     # run_kafka_data_fetcher = threading.Thread(target=kafka_daq.get_data)
     print("go to run daq")
     run_kafka_daq_thread.start()
-    data_fetcher = kafka_daq.get_data()
+    data_fetcher = kafka_daq.get_data_fetcher()
 
     run_kafka_data_fetcher = threading.Thread(target=run_data_fetcher, kwargs={"fetcher": data_fetcher})
     run_kafka_data_fetcher.start()

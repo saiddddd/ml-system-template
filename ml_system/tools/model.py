@@ -21,18 +21,17 @@ class Model(ABC):
 
 class SklearnRandonForest:
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         super(SklearnRandonForest).__init__()
-        self.__init__model()
+        self.__init__model(*args, **kwargs)
 
     def __init__model(self, *args, **kwargs):
         pass
         # TODO: initialization of sklearn random forest model, ingress input hyperparameter.
-        self.__model = RandomForestClassifier(
-            n_estimators=10,
-        )
+        self.__model = RandomForestClassifier(*args, **kwargs)
 
     def fit(self, x, y):
+        print("going to train model")
         self.__model.fit(x, y)
 
     def predict(self, x):
