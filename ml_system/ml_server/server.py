@@ -6,8 +6,10 @@ from data_acq_controller import DataAcquisitorController
 
 from ml_system.tools.data_loader import CsvDataLoader
 
-from ml_system.tools.model import SklearnRandonForest
+from ml_system.tools.model import SklearnRandonForest, XGBoostClassifier
+# from ml_system.tools
 
+from sklearn.metrics import accuracy_score
 
 class MachineLearningServer:
 
@@ -58,7 +60,12 @@ class MachineLearningServer:
 
 
     def _init_model(self, *args, **kwargs):
-        self._model = SklearnRandonForest(*args, **kwargs)
+        # self._model = SklearnRandonForest(*args, **kwargs)
+        self._model = XGBoostClassifier(
+            verbosity=3,
+            n_estimators=10,
+            max_depth=5
+        )
 
 
     def _init_data_daq(self):
@@ -81,6 +88,11 @@ class MachineLearningServer:
         df = csv_data_loader.get_df()
         y = df.pop('satisfaction')
         self._model.fit(df, y)
+
+        predict_result = self._model.predict(df)
+
+        acc = accuracy_score(y, predict_result)
+        print("Accuracy: {}".format(acc))
 
         # # data_acq_services = threading.Thread(target=data_acq.run)
         # # data_acq_services.start()

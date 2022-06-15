@@ -3,6 +3,10 @@
 from abc import ABC, abstractmethod
 from sklearn.ensemble import RandomForestClassifier
 
+import xgboost as xgb
+
+# from river
+
 
 class Model(ABC):
 
@@ -12,22 +16,21 @@ class Model(ABC):
     def __init_model(self):
         raise NotImplementedError
 
-    def fit(self):
+    def fit(self, x, y):
         raise NotImplementedError
 
-    def predict(self):
+    def predict(self, x):
         raise NotImplementedError
 
 
-class SklearnRandonForest:
+class SklearnRandonForest(Model, ABC):
 
     def __init__(self, *args, **kwargs):
         super(SklearnRandonForest).__init__()
         self.__init__model(*args, **kwargs)
 
     def __init__model(self, *args, **kwargs):
-        pass
-        # TODO: initialization of sklearn random forest model, ingress input hyperparameter.
+
         self.__model = RandomForestClassifier(*args, **kwargs)
 
     def fit(self, x, y):
@@ -36,6 +39,36 @@ class SklearnRandonForest:
 
     def predict(self, x):
         self.__model.predict(x)
+
+
+class XGBoostClassifier:
+
+    def __init__(self, *args, **kwargs):
+        super(XGBoostClassifier).__init__()
+        self.__init__model(*args, **kwargs)
+
+    def __init__model(self, *args, **kwargs):
+
+        self.__model = xgb.XGBClassifier(*args, **kwargs)
+
+    def fit(self, x, y):
+        print("go to train XGBoost Classifier")
+        self.__model.fit(x, y)
+
+    def predict(self, x):
+        print("using xgboost to predict result")
+        prediction_result = self.__model.predict(x)
+        return prediction_result
+
+# class RFAdaptiveHoeffdingClassifier:
+#
+#     def __init__(self, *args, **kwargs):
+#         super(RFAdaptiveHoeffdingClassifier).__init__()
+#         self.__init_model(*args, **kwargs)
+#
+#     def __init__model(self, *args, **kwargs):
+#
+#         self.__model =
 
 
 #------------------------------------------------------------------------#
