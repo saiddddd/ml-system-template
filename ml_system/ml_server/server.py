@@ -1,5 +1,4 @@
 from ml_system.controller.data_acq_controller import DataAcquisitorController
-
 from ml_system.tools.data_loader import CsvDataLoader
 
 from ml_system.tools.model import XGBoostClassifier
@@ -46,7 +45,7 @@ class MachineLearningServer:
         self.__handling_model_list = {}
 
         #init object needed
-        self._init_data_daq()
+        # self._init_data_daq()
         self._init_model(
             n_estimators=10,
             verbose=1
@@ -81,7 +80,7 @@ class MachineLearningServer:
         # self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
 
         csv_data_loader = CsvDataLoader(input_file_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
-        df = csv_data_loader.get_df()
+        df = csv_data_loader.get_df(do_label_encoder=True)
         y = df.pop('satisfaction')
         self._model.fit(df, y)
 

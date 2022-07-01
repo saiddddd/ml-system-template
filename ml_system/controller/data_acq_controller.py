@@ -1,5 +1,5 @@
 from ml_system.tools.data_aquisitor import KafkaDataAcquisitor
-from ml_system.servicer.data_acq_servicer import DataAcquisitorServicer
+from ml_system.servicer.data_ingress_servicer import DataAcquisitorServicer
 
 
 class DataAcquisitorController:

@@ -15,6 +15,10 @@ class DataLoader(ABC):
 
         self._data_file_path = input_file_path
 
+    def get_df(self, do_label_encoder: True):
+
+        raise NotImplementedError
+
 
 
 class CsvDataLoader(DataLoader):
@@ -46,12 +50,19 @@ class CsvDataLoader(DataLoader):
             else:
                 self._df[col] = self._df[col].fillna(self._df[col].median())
 
-    def get_df(self):
+    def get_df(self, do_label_encoder: True):
         """
         provide dataframe read from csv
+        encoding string object by sklearn LabelEncoder
+        fill na as well
         :return:
         """
-        self._do_label_encoder()
+
+        print("going to get df")
+
+        if do_label_encoder:
+            self._do_label_encoder()
+
         return self._df
 
 
