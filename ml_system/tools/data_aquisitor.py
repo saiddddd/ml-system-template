@@ -113,7 +113,7 @@ class KafkaDataAcquisitor(DataAcquisitor):
         self.__kafka_fetch_data_mode = None
 
         # fetched data which is going to return
-        self.__data = None
+        self.__data = []
 
     '''design the property to distinguish kafka fetching data mode, is poll or iterate
     '''
@@ -157,7 +157,7 @@ class KafkaDataAcquisitor(DataAcquisitor):
         :return:
         """
 
-        # while self.data_acquisitor_status == 'running':
+        # one polling from kafka broker,
         data_polling_result = self.__kafka_consumer.poll(
             timeout_ms=1000,
             max_records=None,
@@ -166,10 +166,11 @@ class KafkaDataAcquisitor(DataAcquisitor):
         for key, value in data_polling_result.items():
             # kafka polling result.items() will return one batch of polling data with key == topic.
             # if here only one topic going to consume, the for loop will iterate only one time.
-            self.__data = value
+
+            # appending fetched data from kafka to queue. Waiting to flush
+            self.__data.extend(value)
         time.sleep(1)
 
-    #TODO: generalize data get function to fit all data sources
     def get_data_fetcher(self) -> list:
         """
         Generator feature,
@@ -177,14 +178,13 @@ class KafkaDataAcquisitor(DataAcquisitor):
         Terminated while process stop.
         :return:
         """
-        # start_time_stamp = time.time()
-        print("data acquisitor: is fetching data")
+
         while self.data_acquisitor_status == 'running':
             time.sleep(1)
 
-            if self.__data is not None:
+            if len(self.__data) > 0:
                 fetched_data = self.__data
-                self.__data = None
+                self.__data = []
 
                 # convert kafka poll data into pandas dataframe
                 # 2d list
@@ -192,8 +192,6 @@ class KafkaDataAcquisitor(DataAcquisitor):
                 for record in fetched_data:
                     row_data = record.value
                     accumulated_data.append(row_data)
-                # df = pd.DataFrame(accumulated_data)
-                # yield df
 
                 yield accumulated_data
 
@@ -203,7 +201,9 @@ if __name__ == "__main__":
     def run_data_fetcher(fetcher):
         while True:
             try:
-                print(next(fetcher))
+                fetched_data = next(fetcher)
+                print(len(fetched_data))
+                time.sleep(10)
             except StopIteration:
                 print("Generator is terminated!")
                 break
@@ -228,15 +228,4 @@ if __name__ == "__main__":
     time.sleep(60)
 
     kafka_daq.stop()
-
-    # while True:
-    #     try:
-    #         print(next(data_fetcher))
-    #     except StopIteration:
-    #         print("Generator is terminated!")
-    #         break
-    # print("finish of data fetcher, bye~~")
-
-
-
 
