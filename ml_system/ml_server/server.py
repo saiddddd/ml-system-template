@@ -1,12 +1,8 @@
-import threading
-
-import pandas as pd
-
-from data_acq_controller import DataAcquisitorController
+from ml_system.controller.data_acq_controller import DataAcquisitorController
 
 from ml_system.tools.data_loader import CsvDataLoader
 
-from ml_system.tools.model import SklearnRandonForest, XGBoostClassifier
+from ml_system.tools.model import XGBoostClassifier
 # from ml_system.tools
 
 from sklearn.metrics import accuracy_score
