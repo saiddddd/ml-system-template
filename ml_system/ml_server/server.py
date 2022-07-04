@@ -1,10 +1,12 @@
 from ml_system.controller.data_acq_controller import DataAcquisitorController
 from ml_system.tools.data_loader import CsvDataLoader
 
-from ml_system.tools.model import XGBoostClassifier
+from ml_system.tools.model import XGBoostClassifier, SklearnRandonForest, RFAdaptiveHoeffdingClassifier
 # from ml_system.tools
 
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+
 
 class MachineLearningServer:
 
@@ -48,6 +50,7 @@ class MachineLearningServer:
         # self._init_data_daq()
         self._init_model(
             n_estimators=10,
+            max_depth=5,
             verbose=1
         )
 
@@ -56,11 +59,18 @@ class MachineLearningServer:
 
     def _init_model(self, *args, **kwargs):
         # self._model = SklearnRandonForest(*args, **kwargs)
-        self._model = XGBoostClassifier(
-            verbosity=3,
-            n_estimators=10,
-            max_depth=5
+        self._model = RFAdaptiveHoeffdingClassifier(
+            max_depth=3,
+            split_criterion='gini',
+            split_confidence=1e-2,
+            grace_period=1000,
+            seed=0
         )
+        # self._model = XGBoostClassifier(
+        #     verbosity=3,
+        #     n_estimators=10,
+        #     max_depth=5
+        # )
 
 
     def _init_data_daq(self):
@@ -79,14 +89,17 @@ class MachineLearningServer:
         # start the servicer by controller
         # self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
 
-        csv_data_loader = CsvDataLoader(input_file_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
+        csv_data_loader = CsvDataLoader(data_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
         df = csv_data_loader.get_df(do_label_encoder=True)
         y = df.pop('satisfaction')
-        self._model.fit(df, y)
 
-        predict_result = self._model.predict(df)
+        x_train, x_test, y_train, y_test = train_test_split(df, y, test_size=0.3, random_state=0)
 
-        acc = accuracy_score(y, predict_result)
+        self._model.fit(x_train, y_train)
+
+        predict_result = self._model.predict(x_test)
+
+        acc = accuracy_score(y_test, predict_result)
         print("Accuracy: {}".format(acc))
 
         # # data_acq_services = threading.Thread(target=data_acq.run)

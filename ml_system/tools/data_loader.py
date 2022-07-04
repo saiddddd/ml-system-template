@@ -1,24 +1,35 @@
 
+import os
+
 from abc import ABC
 
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
+
 class DataLoader(ABC):
 
-    def __init__(self, input_file_path):
+    def __init__(self, input_data_path):
         """
         Abstraction of DataLoader for reading from static data.
         Different from DataAcquisitor, here is basically reading static data from file or DB table.
-        :param input_file_path:
+        :param input_data_path:
         """
 
-        self._data_file_path = input_file_path
+        self._data_path = input_data_path
+
+    @staticmethod
+    def __check_data_path_valid(data_path):
+        """
+        look up the provided data path is valid or not,
+        implement in concrete object.
+        :return:
+        """
+        raise NotImplementedError
 
     def get_df(self, do_label_encoder: True):
 
         raise NotImplementedError
-
 
 
 class CsvDataLoader(DataLoader):
@@ -32,15 +43,27 @@ class CsvDataLoader(DataLoader):
         """
 
         # check of input file is acceptable
-        input_file_path = kwargs.get('input_file_path')
-        print(input_file_path.split('.')[-1])
-        if input_file_path.split('.')[-1] != 'csv':
-            raise RuntimeError
+        data_path = kwargs.get('data_path')
+        self.__check_data_path_valid(data_path)
+
+        super(CsvDataLoader, self).__init__(data_path)
+
+        self._df = pd.read_csv(self._data_path)
+
+    @staticmethod
+    def __check_data_path_valid(data_path):
+        """
+        check the provided data path is existed, and it is csv file
+        :return:
+        """
+
+        if os.path.isfile(data_path):
+            if data_path.split('.')[-1] != 'csv':
+                raise RuntimeError('provided file {} is not csv'.format(data_path))
+        else:
+            raise FileNotFoundError('provided file {} is not exist'.format(data_path))
 
 
-        super(CsvDataLoader, self).__init__(input_file_path)
-
-        self._df = pd.read_csv(self._data_file_path)
 
     def _do_label_encoder(self):
         for col in self._df.columns:
@@ -69,8 +92,9 @@ class CsvDataLoader(DataLoader):
     def show_dataframe(self, row_limit):
         print(self._df.head(row_limit))
 
+
 if __name__ == '__main__':
 
-    loader = CsvDataLoader(input_file_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
+    loader = CsvDataLoader(data_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
     loader.show_dataframe(row_limit=100)
 
