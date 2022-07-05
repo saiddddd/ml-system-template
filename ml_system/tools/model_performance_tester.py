@@ -5,6 +5,12 @@ import os
 from tqdm import tqdm
 import pickle
 
+from ml_system.tools.model import RFAdaptiveHoeffdingClassifier
+from ml_system.tools.data_loader import CsvDataLoader
+
+from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
+
+
 class ModelTester(ABC):
 
     def __init__(self):
@@ -31,7 +37,6 @@ class ModelTester(ABC):
 
 
 
-
 class OnlineMLPredictor(ModelTester):
 
     def __init__(self):
@@ -42,72 +47,63 @@ class OnlineMLPredictor(ModelTester):
         for f in self._testing_data_path_list:
             print(f)
 
-            df = pd.read_csv(f)
+            csv_data_loader = CsvDataLoader(data_path=f)
+            df = csv_data_loader.get_df(do_label_encoder=True)
             y = df.pop(self._label)
 
-            predict_is_true = []
+            if isinstance(self._model, RFAdaptiveHoeffdingClassifier):
+                predict_is_true = self._model.predict(df)
+            else:
+                predict_is_true = []
 
-            for index, row in tqdm(df.iterrows(), total=df.shape[0]):
+                for index, row in tqdm(df.iterrows(), total=df.shape[0]):
 
 
-                predict_result = self._model.predict_proba_one(row)
-                if isinstance(predict_result, dict):
-                    if predict_result.get(1) > 0.5:
-                        predict_is_true.append(1)
-                    else:
-                        predict_is_true.append(0)
+                    predict_result = self._model.predict_proba_one(row)
+                    if isinstance(predict_result, dict):
+                        if predict_result.get(1) > 0.5:
+                            predict_is_true.append(1)
+                        else:
+                            predict_is_true.append(0)
 
             yield predict_is_true, y
 
 
-# class OnlineMLTestRunner(ModelTester, OnlineMLPredictor):
-#
-#     def __init__(self):
-#         super(OnlineMLTestRunner).__init__()
-#
-#
-#     def run_model_tester(self):
-#
-#         while True:
-#             predict_is_true, y = next(self.run_predict())
-#
-#             print(predict_is_true, y)
+class OnlineMLTestRunner(OnlineMLPredictor):
 
-        # for f in self._testing_data_path_list:
-        #     df = pd.read_csv(f)
-        #     y = df.pop(self._label)
-        #
-        #     predict_is_true = []
-        #
-        #     for index, row in tqdm(df.iterrows(), total=df.shape[0]):
-        #
-        #
-        #         predict_result = self._model.predict_proba(row)
-        #         if isinstance(predict_result, dict):
-        #             if predict_result.get(1) > 0.5:
-        #                 predict_is_true.append(1)
-        #             else:
-        #                 predict_is_true.append(0)
-        #
-        #     yield predict_is_true, y
+    def __init__(self):
+        super(OnlineMLTestRunner).__init__()
+
+
+    def run_model_tester(self):
+
+        for pred_list, y in self.run_predict():
+            acc = accuracy_score(y, pred_list)
+            recall = recall_score(y, pred_list)
+            precision = precision_score(y, pred_list)
+            f1 = f1_score(y, pred_list)
+
+            print("accuracy: {} \nrecall: {} \nprecision: {}\nf1: {}".format(acc, recall, precision, f1))
+
 
 if __name__ == '__main__':
     data_path_list = [
-        '../../data/dummy/dummy_data_testing_1.csv',
-        '../../data/dummy/dummy_data_testing_2.csv'
+        '../../data/hospital/aggregate_data_testing_202007_to_202008.csv'
     ]
-    with open('/Users/pwang/BenWork/OnlineML/onlineml/model_store/pretrain_model_persist/testing_hoeffding_tree_pretrain_model.pickle', 'rb') as f:
+    with open('../../model_persist/hospital_hoeffding_tree_classifier.pickle', 'rb') as f:
         model = pickle.load(f)
-    model_tester = OnlineMLPredictor()
+
+
+
+    model_tester = OnlineMLTestRunner()
 
     model_tester\
         .set_model(model)\
         .set_testing_dataset(data_path_list)\
-        .set_label('Y')
+        .set_label('SEPSIS')
 
-    for pred_list, y in model_tester.run_predict():
-        print(pred_list)
-        print(y)
+    model_tester.run_model_tester()
+
 
 
 

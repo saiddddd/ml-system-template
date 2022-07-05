@@ -1,8 +1,10 @@
+import pickle
+
 from ml_system.controller.data_acq_controller import DataAcquisitorController
 from ml_system.tools.data_loader import CsvDataLoader
 
 from ml_system.tools.model import XGBoostClassifier, SklearnRandonForest, RFAdaptiveHoeffdingClassifier
-# from ml_system.tools
+from ml_system.tools.model_performance_tester import OnlineMLTestRunner
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -60,7 +62,7 @@ class MachineLearningServer:
     def _init_model(self, *args, **kwargs):
         # self._model = SklearnRandonForest(*args, **kwargs)
         self._model = RFAdaptiveHoeffdingClassifier(
-            max_depth=3,
+            max_depth=5,
             split_criterion='gini',
             split_confidence=1e-2,
             grace_period=1000,
@@ -89,18 +91,47 @@ class MachineLearningServer:
         # start the servicer by controller
         # self.__data_acq_controller.run_data_acq_by_servicer('kafka_1', auto_retry_times=1)
 
-        csv_data_loader = CsvDataLoader(data_path='/Users/pwang/BenWork/OnlineML/onlineml/data/airline/airline_data.csv')
-        df = csv_data_loader.get_df(do_label_encoder=True)
-        y = df.pop('satisfaction')
+        csv_data_loader = CsvDataLoader(data_path='../../data/hospital/aggregate_data_training_202001_to_202006.csv')
+        training_df = csv_data_loader.get_df(do_label_encoder=True)
+        training_y = training_df.pop('SEPSIS')
 
-        x_train, x_test, y_train, y_test = train_test_split(df, y, test_size=0.3, random_state=0)
+        # x_train, x_test, y_train, y_test = train_test_split(df, y, test_size=0.3, random_state=0)
 
-        self._model.fit(x_train, y_train)
+        self._model.fit(training_df, training_y)
 
-        predict_result = self._model.predict(x_test)
+        out_file_name = '../../model_persist/hospital_hoeffding_tree_classifier.pickle'
+        with open(out_file_name, 'wb') as out_file:
+            try:
+                pickle.dump(self._model, out_file)
+            except Exception as e:
+                e.with_traceback()
+                print("model persisting error, can not save model into file {}. Please check!".format(out_file_name))
 
-        acc = accuracy_score(y_test, predict_result)
-        print("Accuracy: {}".format(acc))
+        data_path_list = [
+            '../../data/hospital/aggregate_data_testing_202007_to_202008.csv',
+            '../../data/hospital/aggregate_data_testing_202008_to_202009.csv',
+            '../../data/hospital/aggregate_data_testing_202009_to_202010.csv',
+            '../../data/hospital/aggregate_data_testing_202010_to_202011.csv',
+            '../../data/hospital/aggregate_data_testing_202011_to_202012.csv',
+            '../../data/hospital/aggregate_data_testing_202012_to_202201.csv'
+        ]
+
+        model_tester = OnlineMLTestRunner()
+
+        model_tester\
+            .set_model(self._model)\
+            .set_testing_dataset(data_path_list)\
+            .set_label('SEPSIS')
+
+        model_tester.run_model_tester()
+
+        # csv_data_loader = CsvDataLoader(data_path='../../data/hospital/aggregate_data_testing_202007_to_202008.csv')
+        # testing_df = csv_data_loader.get_df(do_label_encoder=True)
+        # testing_y = testing_df.pop('SEPSIS')
+        # predict_result = self._model.predict(testing_df)
+        #
+        # acc = accuracy_score(testing_y, predict_result)
+        # print("Accuracy: {}".format(acc))
 
         # # data_acq_services = threading.Thread(target=data_acq.run)
         # # data_acq_services.start()
