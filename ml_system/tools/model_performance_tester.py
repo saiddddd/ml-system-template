@@ -5,6 +5,8 @@ import os
 from tqdm import tqdm
 import pickle
 
+import numpy as np
+
 from ml_system.tools.model import RFAdaptiveHoeffdingClassifier
 from ml_system.tools.data_loader import CsvDataLoader
 
@@ -12,6 +14,10 @@ from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_sc
 
 
 class ModelTester(ABC):
+    """
+    ModelTester, an abstraction class for tester pipeline and architecture and corresponding api.
+    provided api `set_model`to put desired model to be tested, `set_testing_dataset` to set test data. `set_label` provided label column name
+    """
 
     def __init__(self):
         self._model = None
@@ -42,7 +48,7 @@ class OnlineMLPredictor(ModelTester):
     def __init__(self):
         super(OnlineMLPredictor).__init__()
 
-    def run_predict(self):
+    def run_predict_true_class(self, predict_proba_cut_point=0.5):
 
         for f in self._testing_data_path_list:
             print(f)
@@ -51,22 +57,72 @@ class OnlineMLPredictor(ModelTester):
             df = csv_data_loader.get_df(do_label_encoder=True)
             y = df.pop(self._label)
 
-            if isinstance(self._model, RFAdaptiveHoeffdingClassifier):
-                predict_is_true = self._model.predict(df)
-            else:
-                predict_is_true = []
-
-                for index, row in tqdm(df.iterrows(), total=df.shape[0]):
-
-
-                    predict_result = self._model.predict_proba_one(row)
-                    if isinstance(predict_result, dict):
-                        if predict_result.get(1) > 0.5:
-                            predict_is_true.append(1)
-                        else:
-                            predict_is_true.append(0)
+            # if isinstance(self._model, RFAdaptiveHoeffdingClassifier):
+            predict_is_true = self._model.predict(df, pred_proba_cut_point=predict_proba_cut_point)
+            # else:
+            #     predict_is_true = []
+            #
+            #     for index, row in tqdm(df.iterrows(), total=df.shape[0]):
+            #
+            #
+            #         predict_result = self._model.predict_proba_one(row)
+            #         if isinstance(predict_result, dict):
+            #             if predict_result.get(1) > predict_proba_cut_point:
+            #                 predict_is_true.append(1)
+            #             else:
+            #                 predict_is_true.append(0)
 
             yield predict_is_true, y
+
+    def run_predict_proba_distribution_checker(self, fig_save_path='./temp_prediction_proba_distribution.png'):
+
+        for f in self._testing_data_path_list:
+
+            csv_data_loader = CsvDataLoader(data_path=f)
+            df = csv_data_loader.get_df(do_label_encoder=True)
+            y = df.pop(self._label)
+
+            predict_proba = self._model.predict_proba(df)
+
+            # print(predict_proba)
+            fig = self.draw_analyze_proba_distribution(np.array(predict_proba), y)
+            fig.savefig(fig_save_path)
+
+    @staticmethod
+    def draw_analyze_proba_distribution(pred_proba: np.array, is_target_list: pd.Series):
+
+        from matplotlib import pyplot as plt
+
+        pred_proba_result_true_class = pred_proba[is_target_list == 1]
+        pred_proba_result_false_class = pred_proba[is_target_list == 0]
+
+        fig = plt.figure(figsize=(14, 4))
+        fig.suptitle('{}pred_proba_distribution'.format(''))
+        plt.subplot(131)
+        plt.hist(pred_proba_result_true_class, bins=50, alpha=0.5, label='Y True')
+        plt.hist(pred_proba_result_false_class, bins=50, alpha=0.5, label='Y False')
+        plt.yscale('log')
+        plt.title('stacking prediction proba in both class')
+        plt.xlabel('pred proba')
+        plt.ylabel('statistics')
+        plt.grid()
+        plt.legend()
+        plt.subplot(132)
+        plt.hist(pred_proba_result_true_class, bins=50)
+        plt.yscale('log')
+        plt.title('Y True class prediction proba. dist.')
+        plt.xlabel('pred proba')
+        plt.ylabel('statistics')
+        plt.grid()
+        plt.subplot(133)
+        plt.hist(pred_proba_result_false_class, bins=50)
+        plt.yscale('log')
+        plt.title('Y False class prediction proba. dist.')
+        plt.xlabel('pred proba')
+        plt.ylabel('statistics')
+        plt.grid()
+        return fig
+
 
 
 class OnlineMLTestRunner(OnlineMLPredictor):
@@ -77,7 +133,7 @@ class OnlineMLTestRunner(OnlineMLPredictor):
 
     def run_model_tester(self):
 
-        for pred_list, y in self.run_predict():
+        for pred_list, y in self.run_predict_true_class():
             acc = accuracy_score(y, pred_list)
             recall = recall_score(y, pred_list)
             precision = precision_score(y, pred_list)
@@ -103,6 +159,7 @@ if __name__ == '__main__':
         .set_label('SEPSIS')
 
     model_tester.run_model_tester()
+    # model_tester.run_predict_proba_distribution_checker()
 
 
 

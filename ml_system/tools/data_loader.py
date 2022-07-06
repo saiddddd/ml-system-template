@@ -69,7 +69,7 @@ class CsvDataLoader(DataLoader):
         for col in self._df.columns:
             if self._df[col].dtype == 'object':
                 self._df[col] = self._df[col].fillna(self._df[col].mode())
-                self._df[col] = LabelEncoder().fit_transform(self._df[col])
+                self._df[col] = LabelEncoder().fit_transform(self._df[col].astype('str'))
             else:
                 self._df[col] = self._df[col].fillna(self._df[col].median())
 
