@@ -13,22 +13,55 @@ from imblearn.over_sampling import RandomOverSampler
 from collections import Counter
 
 
-class DataLoader(ABC):
+class DataExtractor:
 
-    def __init__(self, input_data_path):
+    def __init__(self, raw_df):
+
+        self._complete_set_df = raw_df
+
+    def get_df(self, do_label_encoder: True, random_sampling=-1):
+        return self._complete_set_df
+
+    def get_df_x_y(self, label: str) -> (pd.DataFrame, pd.DataFrame):
+        """
+        provided label name to pop from complete set of dataframe loaded by dataloader.
+        :param label: str, column name of label
+        :return: tuple (pd.DataFrame: x, pd.DataFrame: y)
+        """
+
+        x = self._complete_set_df
+        try:
+            y = x.pop(label)
+
+            return x, y
+        except:
+            print("Cannot extraction label: {} from dataframe: ".format(label))
+            print("complete set of dataframe : ")
+            print(x)
+
+
+class DataLoader(DataExtractor, ABC):
+
+    def __init__(self, *args, **kwargs):
         """
         Abstraction of DataLoader for reading from static data.
         Different from DataAcquisitor, here is basically reading static data from file or DB table.
         :param input_data_path:
         """
 
+        do_label_encoding = kwargs.get('do_label_encoding')
+        if do_label_encoding is None:
+            do_label_encoding = True
+
         self._raw_df = None
+        self._load_df(do_label_encoding)
+        super().__init__(self._raw_df)
+
+
         self._df_x = None
         self._df_y = None
-        self._resample_df_x = None
-        self._resample_df_y = None
 
-        self._data_path = input_data_path
+
 
     @staticmethod
     def __check_data_path_valid(data_path):
@@ -39,7 +72,13 @@ class DataLoader(ABC):
         """
         raise NotImplementedError
 
-    def _load_df(self):
+    def _load_df(self, do_label_encoding: bool):
+        """
+        load df inner function provided to construct self._raw_df,
+        based on different source, the method implement at concrete class.
+        :param do_label_encoding: configuration to make loaded df do label (object type of column) encoding.
+        :return:
+        """
         raise NotImplementedError
 
     def _do_label_encoder(self):
@@ -51,54 +90,27 @@ class DataLoader(ABC):
                 self._raw_df[col] = self._raw_df[col].fillna(self._raw_df[col].median())
 
 
-    def get_df(self, do_label_encoder: True, random_sampling=-1):
-        self._load_df()
-        if do_label_encoder:
-            self._do_label_encoder()
 
-        if random_sampling == -1:
-            return self._raw_df
-        else:
-            return self._raw_df.sample(n=random_sampling)
-
-
-    def get_df_x_y(self, label='', do_label_encoder=True, random_sampling=-1) -> (pandas.DataFrame, pandas.DataFrame):
-
-        try:
-            self._df_x = self.get_df(do_label_encoder=do_label_encoder, random_sampling=random_sampling)
-            self._df_y = self._df_x.pop(label)
-
-        except:
-            print("label {} Not found from df".format(label))
-            print(self._df_x)
-
-        return self._df_x, self._df_y
-
-    def get_resample_x_y(self, label='', do_label_encoder=True, resampler=RandomUnderSampler(random_state=42, sampling_strategy='auto')):
+    def get_resample_x_y(self, label='', resampler=RandomUnderSampler(random_state=42, sampling_strategy='auto')):
         """
         resampler using imblearn module's member,
         here can be RandomUnderSampler or RandomOverSampler
         :param label:
         :param resampler:
-        :param do_label_encoder:
-        :param random_sampling:
         :return:
         """
 
         if resampler is not None:
-            df_x, df_y = self.get_df_x_y(label=label, do_label_encoder=do_label_encoder)
+            df_x, df_y = self.get_df_x_y(label=label)
             print(df_x)
             resample_df_x, resample_df_y = resampler.fit_resample(df_x, df_y)
 
 
             print("successfully done with data resampling")
             print("The shape of original dataframe: {}".format(sorted(Counter(df_y).items())))
-            print("The shape after resampling: {}".format(sorted(Counter(self._resample_df_y).items())))
+            print("The shape after resampling: {}".format(sorted(Counter(resample_df_y).items())))
 
-            print(self._resample_df_x)
-            print(self._resample_df_y)
-
-            return self._resample_df_x, self._resample_df_y
+            return resample_df_x, resample_df_y
 
         else:
             print("please specify the data resampler, imblearn under sampler or over sampler ..")
@@ -116,15 +128,18 @@ class CsvDataLoader(DataLoader):
         """
 
         # check of input file is acceptable
-        data_path = kwargs.get('data_path')
-        self.__check_data_path_valid(data_path)
+        self._data_path = kwargs.get('data_path')
+        self.__check_data_path_valid(self._data_path)
 
-        super(CsvDataLoader, self).__init__(data_path)
+        super(CsvDataLoader, self).__init__(*args, **kwargs)
 
-        self._df = pd.read_csv(self._data_path)
-
-    def _load_df(self):
+    def _load_df(self, do_label_encoding=True):
+        print("invoke from child class")
         self._raw_df = pd.read_csv(self._data_path)
+
+        if do_label_encoding:
+            print("going to do label encoding")
+            self._do_label_encoder()
 
     @staticmethod
     def __check_data_path_valid(data_path):
@@ -138,33 +153,6 @@ class CsvDataLoader(DataLoader):
                 raise RuntimeError('provided file {} is not csv'.format(data_path))
         else:
             raise FileNotFoundError('provided file {} is not exist'.format(data_path))
-
-
-
-    # def _do_label_encoder(self):
-    #     for col in self._df.columns:
-    #         if self._df[col].dtype == 'object':
-    #             self._df[col] = self._df[col].fillna(self._df[col].mode())
-    #             self._df[col] = LabelEncoder().fit_transform(self._df[col].astype('str'))
-    #         else:
-    #             self._df[col] = self._df[col].fillna(self._df[col].median())
-
-    # def get_df(self, do_label_encoder: True):
-    #     """
-    #     provide dataframe read from csv
-    #     encoding string object by sklearn LabelEncoder
-    #     fill na as well
-    #     :return:
-    #     """
-    #
-    #     print("going to get df")
-    #
-    #     self._load_df()
-    #
-    #     if do_label_encoder:
-    #         self._do_label_encoder()
-    #
-    #     return self._df
 
 
     def show_dataframe(self, row_limit):
